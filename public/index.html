@@ -902,6 +902,7 @@
         let tickSound = null;
         let backgroundMusicGain = null;
         let backgroundOscillators = [];
+        let isMyTurn = false; // Tracking ob ich am Zug bin
 
         // Audio Context initialisieren
         function initAudio() {
@@ -915,7 +916,7 @@
             if (!audioEnabled || !audioContext || backgroundOscillators.length > 0) return;
             
             backgroundMusicGain = audioContext.createGain();
-            backgroundMusicGain.gain.value = 0.03; // Sehr leise
+            backgroundMusicGain.gain.value = 0.08; // Etwas lauter
             backgroundMusicGain.connect(audioContext.destination);
             
             // Mehrere Oszillatoren für angenehmen Ambient-Sound
@@ -928,7 +929,9 @@
                 osc.type = 'sine';
                 osc.frequency.value = freq;
                 
-                oscGain.gain.value = 0.25;
+                // Sanft ein- und ausblenden für angenehmen Sound
+                oscGain.gain.value = 0;
+                oscGain.gain.setTargetAtTime(0.15, audioContext.currentTime + index * 0.5, 0.5);
                 
                 osc.connect(oscGain);
                 oscGain.connect(backgroundMusicGain);
@@ -1023,8 +1026,8 @@
                 timerProgress.style.strokeDashoffset = circumference - offset;
                 timerText.textContent = timeLeft;
                 
-                // Tick-Sound bei jedem Sekunden-Wechsel
-                if (timeLeft <= 10) {
+                // Tick-Sound nur bei eigenem Zug und ab 10 Sekunden
+                if (timeLeft <= 10 && isMyTurn) {
                     playTickSound();
                 }
                 
@@ -1107,6 +1110,7 @@
                 currentLobby = lobby;
                 
                 if (lobby.status === 'playing') {
+                    showScreen('game-screen');
                     updateGameUI();
                 } else if (lobby.status === 'voting') {
                     // Auch Spectators sehen Voting-Screen
@@ -1447,7 +1451,7 @@
 
             // Input und Timer (nur für aktive Spieler, nicht für Spectators)
             if (playerRole !== 'spectator') {
-                const isMyTurn = currentPlayerId === socket.id;
+                isMyTurn = currentPlayerId === socket.id;
                 if (isMyTurn) {
                     document.getElementById('word-input-container').style.display = 'block';
                     document.getElementById('waiting-turn').style.display = 'none';
@@ -1461,7 +1465,10 @@
                     document.getElementById('waiting-turn').style.display = 'block';
                     document.getElementById('timer-display').style.display = 'none';
                     stopTimer();
+                    isMyTurn = false;
                 }
+            } else {
+                isMyTurn = false;
             }
 
             // Submissions als Tabelle (auch für Spectators sichtbar)
