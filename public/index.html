@@ -798,6 +798,12 @@
                 <h2 style="font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem;">Match Beendet!</h2>
                 <p style="font-size: 1.25rem; color: #cbd5e1; margin-bottom: 2rem;" id="match-result"></p>
 
+                <!-- Aktueller Punktestand -->
+                <div class="info-box" style="margin-bottom: 2rem;">
+                    <h3 style="font-weight: 700; margin-bottom: 1rem;">📊 Aktueller Punktestand</h3>
+                    <div id="current-scores" style="display: grid; gap: 0.5rem;"></div>
+                </div>
+
                 <div class="info-box" id="rating-container" style="margin-bottom: 2rem; display: none;">
                     <h3 style="font-weight: 700; margin-bottom: 1rem;">Punkte vergeben</h3>
                     <p style="color: #94a3b8; margin-bottom: 1rem;">Bewerte die Wörter der anderen Spieler (je 1 Punkt pro Person)</p>
@@ -1210,6 +1216,13 @@
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
             stopTimer();
+            
+            // Voting-Ergebnisse zurücksetzen wenn man Voting-Screen verlässt
+            if (screenId !== 'voting-screen') {
+                document.getElementById('vote-options-container').style.display = 'block';
+                document.getElementById('vote-waiting').style.display = 'block';
+                document.getElementById('vote-results-container').style.display = 'none';
+            }
         }
 
         function getCurrentScreen() {
@@ -1541,11 +1554,16 @@
             const hasVoted = gameState.votes[socket.id] !== undefined;
             const isSpectator = playerRole === 'spectator';
             
-            let optionsHTML = `
-                <button class="btn-primary" onclick="submitVote('CONTINUE')" ${hasVoted || isSpectator ? 'disabled' : ''}>
-                    ➡️ Weiter Spielen
-                </button>
-            `;
+            let optionsHTML = '';
+            
+            // "Weiter spielen" nur bis Runde 3 (also vor Runde 4)
+            if (gameState.round <= 3) {
+                optionsHTML += `
+                    <button class="btn-primary" onclick="submitVote('CONTINUE')" ${hasVoted || isSpectator ? 'disabled' : ''}>
+                        ➡️ Weiter Spielen
+                    </button>
+                `;
+            }
 
             activePlayers.forEach(player => {
                 const isMe = player.id === socket.id;
@@ -1687,6 +1705,22 @@
         function updateResultsUI(message, matchCount) {
             document.getElementById('match-result').textContent = message;
             document.getElementById('match-number').textContent = matchCount;
+
+            // Aktuellen Punktestand anzeigen
+            const scoresDiv = document.getElementById('current-scores');
+            const sortedPlayers = [...currentLobby.players]
+                .filter(p => !p.isSpectator)
+                .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));
+            
+            scoresDiv.innerHTML = sortedPlayers.map((player, idx) => {
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '•';
+                return `
+                    <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: rgba(15, 23, 42, 0.3); border-radius: 0.5rem;">
+                        <span>${medal} ${player.name}</span>
+                        <span style="font-weight: 700; color: #c084fc;">${player.totalPoints || 0} Punkte</span>
+                    </div>
+                `;
+            }).join('');
 
             // Rating nur für Nicht-Imposter
             if (!wasImposter && playerRole !== 'spectator') {

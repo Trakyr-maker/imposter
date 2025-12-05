@@ -464,24 +464,20 @@ io.on('connection', (socket) => {
     const maxVotes = Math.max(...Object.values(voteCounts), 0);
     const votedPlayerId = Object.keys(voteCounts).find(id => voteCounts[id] === maxVotes);
 
-    if (continueVotes > maxVotes) {
-      // Weiterspielen - max 4 Runden
-      if (gameState.round <= 4) {
-        gameState.phase = 'playing';
-        gameState.votes = {};
-        gameState.voteResults = {};
-        gameState.currentPlayerIndex = 0;
-        gameState.turnStartTime = Date.now();
-        lobby.status = 'playing';
-        
-        io.to(lobbyCode).emit('game-updated', { lobby: sanitizeLobby(lobby) });
-        startTurnTimer(lobby, lobbyCode);
-        
-        console.log(`Runde ${gameState.round} wird weitergespielt in Lobby ${lobbyCode}`);
-      } else {
-        // Nach Runde 4 muss entschieden werden
-        endMatch(lobby, lobbyCode, 'draw', `Maximale Rundenzahl erreicht! Unentschieden!`);
-      }
+    // Nach Runde 3 (also in Runde 4) darf nicht mehr weitergespielt werden
+    if (continueVotes > maxVotes && gameState.round <= 3) {
+      // Weiterspielen
+      gameState.phase = 'playing';
+      gameState.votes = {};
+      gameState.voteResults = {};
+      gameState.currentPlayerIndex = 0;
+      gameState.turnStartTime = Date.now();
+      lobby.status = 'playing';
+      
+      io.to(lobbyCode).emit('game-updated', { lobby: sanitizeLobby(lobby) });
+      startTurnTimer(lobby, lobbyCode);
+      
+      console.log(`Runde ${gameState.round} wird weitergespielt in Lobby ${lobbyCode}`);
     } else if (votedPlayerId) {
       // Spieler wurde gevotet
       const votedPlayer = lobby.players.find(p => p.id === votedPlayerId);
@@ -500,6 +496,9 @@ io.on('connection', (socket) => {
         // Falscher Spieler - Imposter gewinnt
         endMatch(lobby, lobbyCode, 'imposter', `${votedPlayer.name} war nicht der Imposter! Der Imposter ${lobby.players.find(p => p.id === gameState.imposter).name} hat gewonnen!`);
       }
+    } else {
+      // Keine klare Mehrheit oder nach Runde 4 und CONTINUE gewählt - Unentschieden
+      endMatch(lobby, lobbyCode, 'draw', `Keine Entscheidung getroffen! Unentschieden!`);
     }
   }
 
