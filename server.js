@@ -382,28 +382,41 @@ io.on('connection', (socket) => {
 
     const gameState = lobby.gameState;
     
-    // Runde beenden und neue Runde starten
-    gameState.round++;
+    // NEUES Wort generieren (gleiches Thema)
+    const category = lobby.settings.category;
+    const availableWords = WORD_CATEGORIES[category].filter(w => 
+      w.toLowerCase() !== gameState.word.toLowerCase()
+    );
+    const newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+    gameState.word = newWord;
+    
+    // Gleiche Runde neu starten (Runde NICHT erhöhen!)
+    // Submissions dieser Runde löschen
+    gameState.submissions = gameState.submissions.filter(s => s.round !== gameState.round);
     gameState.currentPlayerIndex = 0;
     gameState.wordRevealed = false;
     gameState.revealedBy = null;
-    gameState.votes = {};
-    gameState.voteResults = {};
     gameState.turnStartTime = Date.now();
 
-    // Nach Runde 2 -> Voting, sonst weiterspielen
-    if (gameState.round > 2) {
-      gameState.phase = 'voting';
-      lobby.status = 'voting';
-      io.to(lobbyCode).emit('game-updated', { lobby: sanitizeLobby(lobby) });
-    } else {
-      lobby.status = 'playing';
-      gameState.phase = 'playing';
-      io.to(lobbyCode).emit('game-updated', { lobby: sanitizeLobby(lobby) });
-      startTurnTimer(lobby, lobbyCode);
-    }
+    // Zurück zum Spielen
+    lobby.status = 'playing';
+    gameState.phase = 'playing';
+    
+    // Allen Spielern das neue Wort schicken (außer Imposter)
+    lobby.players.forEach(player => {
+      if (player.isSpectator) return;
+      
+      if (player.id === gameState.imposter) {
+        io.to(player.id).emit('new-word-after-reveal', { word: '???', isImposter: true });
+      } else {
+        io.to(player.id).emit('new-word-after-reveal', { word: newWord, isImposter: false });
+      }
+    });
+    
+    io.to(lobbyCode).emit('game-updated', { lobby: sanitizeLobby(lobby) });
+    startTurnTimer(lobby, lobbyCode);
 
-    console.log(`Spiel fortsetzt nach Wort-Offenbarung in Lobby ${lobbyCode}, Runde ${gameState.round}`);
+    console.log(`Runde ${gameState.round} wird mit neuem Wort "${newWord}" neu gestartet in Lobby ${lobbyCode}`);
   });
 
   // Vote abgeben

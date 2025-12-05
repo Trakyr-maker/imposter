@@ -1092,6 +1092,14 @@
                 }
             });
 
+            socket.on('new-word-after-reveal', ({ word, isImposter }) => {
+                // Neues Wort nach Wort-Offenbarung
+                playerWord = word;
+                playerRole = isImposter ? 'imposter' : 'player';
+                
+                showToast(`🔄 Neues Wort: ${word}`, 'info');
+            });
+
             socket.on('match-ended', ({ lobby, winner, message, isFinal, matchCount, imposter }) => {
                 currentLobby = lobby;
                 wasImposter = (socket.id === imposter);
@@ -1487,12 +1495,15 @@
             const hasVoted = gameState.votes[socket.id] !== undefined;
             const isSpectator = playerRole === 'spectator';
             
-            // Spectators sehen keine Voting-Optionen
+            // Spectators sehen KEINE Voting-Optionen
             if (isSpectator) {
                 voteOptionsContainer.style.display = 'none';
+                voteOptions.innerHTML = ''; // Keine Buttons rendern!
                 voteWaiting.style.display = 'block';
-                document.getElementById('vote-count-text').textContent = 
-                    `Als Zuschauer kannst du nicht voten. Warte auf das Ergebnis...`;
+                voteWaiting.innerHTML = `
+                    <p style="margin-bottom: 0.5rem;">👁️ Als Zuschauer kannst du nicht voten</p>
+                    <p id="vote-count-text" style="color: #94a3b8;">Warte auf das Ergebnis...</p>
+                `;
             } else {
                 voteOptionsContainer.style.display = 'block';
                 voteWaiting.style.display = 'block';
@@ -1522,7 +1533,10 @@
                 // Vote count update
                 const voteCount = Object.keys(gameState.votes).length;
                 const totalVoters = activePlayers.length;
-                document.getElementById('vote-count-text').textContent = `${voteCount} / ${totalVoters} Stimmen abgegeben`;
+                voteWaiting.innerHTML = `
+                    <p style="margin-bottom: 0.5rem;">Warte auf alle Spieler...</p>
+                    <p id="vote-count-text">${voteCount} / ${totalVoters} Stimmen abgegeben</p>
+                `;
             }
             
             // Submissions-Tabelle aktualisieren
