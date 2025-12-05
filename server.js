@@ -293,11 +293,25 @@ io.on('connection', (socket) => {
 
     const player = lobby.players.find(p => p.id === socket.id);
     
+    // Prüfen ob das Wort bereits in dieser Runde verwendet wurde
+    const currentRoundSubmissions = gameState.submissions.filter(s => s.round === gameState.round);
+    const isDuplicate = currentRoundSubmissions.some(s => 
+      s.word.toLowerCase() === word.trim().toLowerCase()
+    );
+    
+    if (isDuplicate) {
+      socket.emit('error', { message: `Das Wort "${word.trim()}" wurde bereits in dieser Runde verwendet!` });
+      return;
+    }
+    
     // Prüfen ob Imposter das richtige Wort eingegeben hat
     const isImposter = socket.id === gameState.imposter;
     if (isImposter && word.trim().toLowerCase() === gameState.word.toLowerCase()) {
-      // Imposter hat das Wort erraten - Spiel sofort beenden
-      endMatch(lobby, lobbyCode, 'imposter', `🎭 Der Imposter ${player.name} hat das Wort "${gameState.word}" erraten und gewinnt!`);
+      // Imposter hat das Wort erraten während des Spiels - nur Imposter +2
+      player.score = (player.score || 0) + 2;
+      player.totalPoints = (player.totalPoints || 0) + 2;
+      
+      endMatch(lobby, lobbyCode, 'imposter', `🎭 Der Imposter ${player.name} hat das Wort "${gameState.word}" erraten! Imposter: +2 Punkte`);
       return;
     }
     
@@ -513,9 +527,32 @@ io.on('connection', (socket) => {
     const isCorrect = guess.toLowerCase().trim() === gameState.word.toLowerCase().trim();
 
     if (isCorrect) {
-      endMatch(lobby, lobbyCode, 'imposter', `Der Imposter hat das Wort "${gameState.word}" erraten und gewonnen!`);
+      // Imposter hat das Wort erraten - bekommt +2 Punkte, Spieler bekommen +1
+      const imposterPlayer = lobby.players.find(p => p.id === gameState.imposter);
+      if (imposterPlayer) {
+        imposterPlayer.score = (imposterPlayer.score || 0) + 2;
+        imposterPlayer.totalPoints = (imposterPlayer.totalPoints || 0) + 2;
+      }
+      
+      // Alle anderen Spieler bekommen +1 Punkt (haben Imposter gefunden)
+      lobby.players.forEach(player => {
+        if (player.id !== gameState.imposter && !player.isSpectator) {
+          player.score = (player.score || 0) + 1;
+          player.totalPoints = (player.totalPoints || 0) + 1;
+        }
+      });
+      
+      endMatch(lobby, lobbyCode, 'imposter', `Der Imposter hat das Wort "${gameState.word}" erraten! Imposter: +2 Punkte, Spieler: +1 Punkt`);
     } else {
-      endMatch(lobby, lobbyCode, 'players', `Der Imposter hat falsch geraten! Das Wort war "${gameState.word}". Die Spieler gewinnen!`);
+      // Imposter hat falsch geraten - Spieler bekommen +2 Punkte
+      lobby.players.forEach(player => {
+        if (player.id !== gameState.imposter && !player.isSpectator) {
+          player.score = (player.score || 0) + 2;
+          player.totalPoints = (player.totalPoints || 0) + 2;
+        }
+      });
+      
+      endMatch(lobby, lobbyCode, 'players', `Der Imposter hat falsch geraten! Das Wort war "${gameState.word}". Spieler bekommen +2 Punkte!`);
     }
   });
 

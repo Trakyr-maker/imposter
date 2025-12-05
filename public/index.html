@@ -905,9 +905,6 @@
         let myRatings = {};
         let wasImposter = false;
         let audioContext = null;
-        let tickSound = null;
-        let backgroundMusicGain = null;
-        let backgroundOscillators = [];
         let isMyTurn = false; // Tracking ob ich am Zug bin
 
         // Audio Context initialisieren
@@ -915,48 +912,6 @@
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
-        }
-
-        // Hintergrundmusik starten (sanfte Ambience)
-        function startBackgroundMusic() {
-            if (!audioEnabled || !audioContext || backgroundOscillators.length > 0) return;
-            
-            backgroundMusicGain = audioContext.createGain();
-            backgroundMusicGain.gain.value = 0.08; // Etwas lauter
-            backgroundMusicGain.connect(audioContext.destination);
-            
-            // Mehrere Oszillatoren für angenehmen Ambient-Sound
-            const frequencies = [220, 330, 440, 550]; // A3, E4, A4, C#5 - harmonisch
-            
-            frequencies.forEach((freq, index) => {
-                const osc = audioContext.createOscillator();
-                const oscGain = audioContext.createGain();
-                
-                osc.type = 'sine';
-                osc.frequency.value = freq;
-                
-                // Sanft ein- und ausblenden für angenehmen Sound
-                oscGain.gain.value = 0;
-                oscGain.gain.setTargetAtTime(0.15, audioContext.currentTime + index * 0.5, 0.5);
-                
-                osc.connect(oscGain);
-                oscGain.connect(backgroundMusicGain);
-                
-                osc.start(audioContext.currentTime + index * 0.5);
-                backgroundOscillators.push({ osc, gain: oscGain });
-            });
-        }
-
-        // Hintergrundmusik stoppen
-        function stopBackgroundMusic() {
-            backgroundOscillators.forEach(({ osc }) => {
-                try {
-                    osc.stop();
-                } catch (e) {
-                    // Already stopped
-                }
-            });
-            backgroundOscillators = [];
         }
 
         // Tick-Sound generieren
@@ -979,27 +934,6 @@
             oscillator.stop(audioContext.currentTime + 0.1);
         }
 
-        // Erfolgs-Sound
-        function playSuccessSound() {
-            if (!audioEnabled || !audioContext) return;
-            
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
-            oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
-        }
-
         // Audio Functions
         function toggleAudio() {
             initAudio();
@@ -1008,12 +942,9 @@
             
             if (audioEnabled) {
                 audioContext.resume();
-                startBackgroundMusic();
                 icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>';
                 showToast('🔊 Sound aktiviert', 'success');
-                playSuccessSound();
             } else {
-                stopBackgroundMusic();
                 icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>';
             }
         }
@@ -1549,37 +1480,50 @@
 
             const gameState = currentLobby.gameState;
             const voteOptions = document.getElementById('vote-options');
+            const voteOptionsContainer = document.getElementById('vote-options-container');
+            const voteWaiting = document.getElementById('vote-waiting');
             const activePlayers = currentLobby.players.filter(p => !p.isSpectator);
             
             const hasVoted = gameState.votes[socket.id] !== undefined;
             const isSpectator = playerRole === 'spectator';
             
-            let optionsHTML = '';
-            
-            // "Weiter spielen" nur bis Runde 3 (also vor Runde 4)
-            if (gameState.round <= 3) {
-                optionsHTML += `
-                    <button class="btn-primary" onclick="submitVote('CONTINUE')" ${hasVoted || isSpectator ? 'disabled' : ''}>
-                        ➡️ Weiter Spielen
-                    </button>
-                `;
+            // Spectators sehen keine Voting-Optionen
+            if (isSpectator) {
+                voteOptionsContainer.style.display = 'none';
+                voteWaiting.style.display = 'block';
+                document.getElementById('vote-count-text').textContent = 
+                    `Als Zuschauer kannst du nicht voten. Warte auf das Ergebnis...`;
+            } else {
+                voteOptionsContainer.style.display = 'block';
+                voteWaiting.style.display = 'block';
+                
+                let optionsHTML = '';
+                
+                // "Weiter spielen" nur bis Runde 3 (also vor Runde 4)
+                if (gameState.round <= 3) {
+                    optionsHTML += `
+                        <button class="btn-primary" onclick="submitVote('CONTINUE')" ${hasVoted ? 'disabled' : ''}>
+                            ➡️ Weiter Spielen
+                        </button>
+                    `;
+                }
+
+                activePlayers.forEach(player => {
+                    const isMe = player.id === socket.id;
+                    optionsHTML += `
+                        <button class="btn-danger" onclick="submitVote('${player.id}')" ${hasVoted || isMe ? 'disabled' : ''}>
+                            🎯 ${player.name} voten
+                        </button>
+                    `;
+                });
+
+                voteOptions.innerHTML = optionsHTML;
+
+                // Vote count update
+                const voteCount = Object.keys(gameState.votes).length;
+                const totalVoters = activePlayers.length;
+                document.getElementById('vote-count-text').textContent = `${voteCount} / ${totalVoters} Stimmen abgegeben`;
             }
-
-            activePlayers.forEach(player => {
-                const isMe = player.id === socket.id;
-                optionsHTML += `
-                    <button class="btn-danger" onclick="submitVote('${player.id}')" ${hasVoted || isMe || isSpectator ? 'disabled' : ''}>
-                        🎯 ${player.name} voten
-                    </button>
-                `;
-            });
-
-            voteOptions.innerHTML = optionsHTML;
-
-            // Vote count update
-            const voteCount = Object.keys(gameState.votes).length;
-            const totalVoters = activePlayers.length;
-            document.getElementById('vote-count-text').textContent = `${voteCount} / ${totalVoters} Stimmen abgegeben`;
             
             // Submissions-Tabelle aktualisieren
             updateVotingSubmissionsTable();
@@ -1642,7 +1586,12 @@
         }
 
         function displayVoteResults(voteResults) {
-            document.getElementById('vote-options-container').style.display = 'none';
+            // Options und Waiting ausblenden, Ergebnisse einblenden
+            const isSpectator = playerRole === 'spectator';
+            
+            if (!isSpectator) {
+                document.getElementById('vote-options-container').style.display = 'none';
+            }
             document.getElementById('vote-waiting').style.display = 'none';
             document.getElementById('vote-results-container').style.display = 'block';
             
@@ -1681,8 +1630,8 @@
             
             resultsDiv.innerHTML = resultsHTML;
             
-            // Host kann auswerten
-            if (isHost) {
+            // Host kann auswerten (Spectators nicht)
+            if (isHost && !isSpectator) {
                 document.getElementById('evaluate-btn').style.display = 'block';
             }
         }
