@@ -590,8 +590,14 @@ io.on('connection', (socket) => {
           needsGuess: true
         });
       } else {
-        // Falscher Spieler - Imposter gewinnt
-        endMatch(lobby, lobbyCode, 'imposter', `${votedPlayer.name} war nicht der Imposter! Der Imposter ${lobby.players.find(p => p.id === gameState.imposter).name} hat gewonnen!`);
+        // Falscher Spieler - Imposter gewinnt und bekommt +1 Punkt
+        const imposterPlayer = lobby.players.find(p => p.id === gameState.imposter);
+        if (imposterPlayer) {
+          imposterPlayer.score = (imposterPlayer.score || 0) + 1;
+          imposterPlayer.totalPoints = (imposterPlayer.totalPoints || 0) + 1;
+        }
+        
+        endMatch(lobby, lobbyCode, 'imposter', `${votedPlayer.name} war nicht der Imposter! Der Imposter ${imposterPlayer.name} hat gewonnen! +1 Punkt`);
       }
     } else {
       // Keine klare Mehrheit oder nach Runde 4 und CONTINUE gewählt - Unentschieden
