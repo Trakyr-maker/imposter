@@ -20,11 +20,81 @@ const playerSockets = new Map(); // socketId -> playerInfo
 
 // Wort-Kategorien
 const WORD_CATEGORIES = {
-  tiere: ['Elefant', 'Giraffe', 'Delfin', 'Schmetterling', 'Adler', 'Löwe', 'Pinguin', 'Krokodil', 'Tiger', 'Panda'],
-  objekte: ['Buch', 'Lampe', 'Schirm', 'Brille', 'Telefon', 'Gitarre', 'Kamera', 'Uhr', 'Stuhl', 'Tisch'],
-  orte: ['Strand', 'Bibliothek', 'Restaurant', 'Museum', 'Flughafen', 'Park', 'Kino', 'Bahnhof', 'Schule', 'Krankenhaus'],
-  aktivitaeten: ['Tanzen', 'Schwimmen', 'Kochen', 'Malen', 'Singen', 'Lesen', 'Joggen', 'Klettern', 'Schlafen', 'Wandern'],
-  essen: ['Pizza', 'Sushi', 'Schokolade', 'Erdbeere', 'Kaffee', 'Pasta', 'Burger', 'Salat', 'Kuchen', 'Eis']
+  tiere: [
+    'Elefant', 'Giraffe', 'Delfin', 'Schmetterling', 'Adler', 'Löwe', 'Pinguin', 'Krokodil', 'Tiger', 'Panda',
+    'Eisbär', 'Koala', 'Nashorn', 'Zebra', 'Flamingo', 'Papagei', 'Eule', 'Fuchs', 'Wolf', 'Bär',
+    'Hase', 'Reh', 'Elch', 'Wal', 'Hai', 'Oktopus', 'Qualle', 'Schildkröte', 'Schlange', 'Echse',
+    'Frosch', 'Känguru', 'Ameise', 'Biene', 'Libelle', 'Spinne', 'Seepferdchen', 'Fledermaus', 'Igel', 'Biber',
+    'Otter', 'Gepard', 'Leopard', 'Gorilla', 'Orang-Utan', 'Kamel', 'Lama', 'Strauß', 'Kolibri', 'Storch'
+  ],
+  objekte: [
+    'Buch', 'Lampe', 'Schirm', 'Brille', 'Telefon', 'Gitarre', 'Kamera', 'Uhr', 'Stuhl', 'Tisch',
+    'Sofa', 'Bett', 'Spiegel', 'Vase', 'Kerze', 'Radio', 'Fernseher', 'Computer', 'Tastatur', 'Maus',
+    'Kopfhörer', 'Mikrofon', 'Rucksack', 'Koffer', 'Regenschirm', 'Schal', 'Handschuh', 'Mütze', 'Schuhe', 'Stiefel',
+    'Zahnbürste', 'Kamm', 'Handtuch', 'Seife', 'Shampoo', 'Taschentuch', 'Notizbuch', 'Stift', 'Radiergummi', 'Lineal',
+    'Schere', 'Kleber', 'Taschenlampe', 'Kompass', 'Fernglas', 'Globus', 'Karte', 'Brief', 'Briefmarke', 'Paket'
+  ],
+  orte: [
+    'Strand', 'Bibliothek', 'Restaurant', 'Museum', 'Flughafen', 'Park', 'Kino', 'Bahnhof', 'Schule', 'Krankenhaus',
+    'Supermarkt', 'Apotheke', 'Post', 'Bank', 'Hotel', 'Café', 'Bar', 'Disco', 'Theater', 'Oper',
+    'Stadion', 'Schwimmbad', 'Fitnessstudio', 'Zoo', 'Aquarium', 'Botanischer Garten', 'Friedhof', 'Kirche', 'Moschee', 'Tempel',
+    'Rathaus', 'Polizeistation', 'Feuerwehr', 'Tankstelle', 'Werkstatt', 'Fabrik', 'Büro', 'Labor', 'Universität', 'Spielplatz',
+    'Wald', 'Berg', 'See', 'Fluss', 'Wüste', 'Höhle', 'Insel', 'Hafen', 'Brücke', 'Tunnel'
+  ],
+  aktivitaeten: [
+    'Tanzen', 'Schwimmen', 'Kochen', 'Malen', 'Singen', 'Lesen', 'Joggen', 'Klettern', 'Schlafen', 'Wandern',
+    'Radfahren', 'Skifahren', 'Snowboarden', 'Surfen', 'Tauchen', 'Segeln', 'Angeln', 'Reiten', 'Boxen', 'Fechten',
+    'Yoga', 'Meditation', 'Fotografieren', 'Filmen', 'Schreiben', 'Zeichnen', 'Nähen', 'Stricken', 'Basteln', 'Gärtnern',
+    'Campen', 'Grillen', 'Backen', 'Bügeln', 'Putzen', 'Einkaufen', 'Feiern', 'Zocken', 'Streamen', 'Bloggen',
+    'Programmieren', 'Reparieren', 'Renovieren', 'Sammeln', 'Trainieren', 'Stretchen', 'Jonglieren', 'Zaubern', 'Parkour', 'Breakdance'
+  ],
+  essen: [
+    'Pizza', 'Sushi', 'Schokolade', 'Erdbeere', 'Kaffee', 'Pasta', 'Burger', 'Salat', 'Kuchen', 'Eis',
+    'Pommes', 'Currywurst', 'Döner', 'Schnitzel', 'Bratwurst', 'Bretzel', 'Croissant', 'Bagel', 'Pancake', 'Waffle',
+    'Steak', 'Hähnchen', 'Fisch', 'Garnelen', 'Muscheln', 'Kaviar', 'Käse', 'Butter', 'Joghurt', 'Milch',
+    'Apfel', 'Banane', 'Orange', 'Traube', 'Mango', 'Ananas', 'Wassermelone', 'Kirsche', 'Pfirsich', 'Birne',
+    'Karotte', 'Tomate', 'Gurke', 'Paprika', 'Zwiebel', 'Knoblauch', 'Reis', 'Nudeln', 'Brot', 'Honig'
+  ],
+  filme_serien: [
+    'Harry Potter', 'Star Wars', 'Herr der Ringe', 'Matrix', 'Titanic', 'Inception', 'Avatar', 'Avengers', 'Joker', 'Spiderman',
+    'Batman', 'Superman', 'Iron Man', 'Thor', 'Breaking Bad', 'Game of Thrones', 'Stranger Things', 'The Walking Dead', 'Friends', 'How I Met Your Mother',
+    'The Office', 'Sherlock', 'Doctor Who', 'Black Mirror', 'Westworld', 'Vikings', 'Prison Break', 'Lost', 'Dexter', 'House of Cards',
+    'Narcos', 'Peaky Blinders', 'The Crown', 'Squid Game', 'Wednesday', 'Wednesday Addams', 'Barbie', 'Oppenheimer', 'Dune', 'Interstellar'
+  ],
+  anime_manga: [
+    'Naruto', 'One Piece', 'Dragon Ball', 'Attack on Titan', 'Death Note', 'My Hero Academia', 'Demon Slayer', 'Fullmetal Alchemist', 'Sword Art Online', 'Tokyo Ghoul',
+    'One Punch Man', 'Hunter x Hunter', 'Bleach', 'Fairy Tail', 'Pokemon', 'Digimon', 'Yu-Gi-Oh', 'Sailor Moon', 'Dragon Ball Z', 'Cowboy Bebop',
+    'Neon Genesis Evangelion', 'Steins Gate', 'Code Geass', 'Jujutsu Kaisen', 'Chainsaw Man', 'Spy x Family', 'Mob Psycho', 'Haikyu', 'Kuroko no Basket', 'Slam Dunk',
+    'Assassination Classroom', 'The Promised Neverland', 'Dr Stone', 'Fire Force', 'Black Clover', 'Boruto', 'Gintama', 'JoJo', 'Berserk', 'Vinland Saga'
+  ],
+  videospiele: [
+    'Minecraft', 'Fortnite', 'League of Legends', 'Valorant', 'Counter Strike', 'Call of Duty', 'Overwatch', 'Apex Legends', 'PUBG', 'Grand Theft Auto',
+    'Red Dead Redemption', 'The Witcher', 'Cyberpunk', 'Elden Ring', 'Dark Souls', 'Sekiro', 'Bloodborne', 'God of War', 'The Last of Us', 'Uncharted',
+    'Zelda', 'Mario', 'Pokemon', 'Sonic', 'Tetris', 'Pac-Man', 'Street Fighter', 'Mortal Kombat', 'Tekken', 'Smash Bros',
+    'FIFA', 'Rocket League', 'Among Us', 'Fall Guys', 'Roblox', 'Genshin Impact', 'Honkai Star Rail', 'Final Fantasy', 'Kingdom Hearts', 'Resident Evil'
+  ],
+  berufe: [
+    'Arzt', 'Lehrer', 'Ingenieur', 'Anwalt', 'Koch', 'Kellner', 'Polizist', 'Feuerwehrmann', 'Pilot', 'Mechaniker',
+    'Elektriker', 'Klempner', 'Maler', 'Schreiner', 'Architekt', 'Designer', 'Fotograf', 'Journalist', 'Schauspieler', 'Musiker',
+    'Programmierer', 'Informatiker', 'Wissenschaftler', 'Forscher', 'Tierarzt', 'Zahnarzt', 'Krankenpfleger', 'Apotheker', 'Friseur', 'Kosmetiker'
+  ],
+  laender: [
+    'Deutschland', 'Frankreich', 'Italien', 'Spanien', 'England', 'Schweiz', 'Österreich', 'Niederlande', 'Belgien', 'Polen',
+    'Tschechien', 'Ungarn', 'Griechenland', 'Türkei', 'Russland', 'Ukraine', 'Schweden', 'Norwegen', 'Finnland', 'Dänemark',
+    'USA', 'Kanada', 'Mexiko', 'Brasilien', 'Argentinien', 'Chile', 'Peru', 'Kolumbien', 'Venezuela', 'China',
+    'Japan', 'Südkorea', 'Indien', 'Thailand', 'Vietnam', 'Indonesien', 'Philippinen', 'Australien', 'Neuseeland', 'Ägypten',
+    'Südafrika', 'Nigeria', 'Kenia', 'Marokko', 'Tunesien', 'Israel', 'Saudi-Arabien', 'Vereinigte Arabische Emirate', 'Katar', 'Iran'
+  ],
+  personen: [
+    'Albert Einstein', 'Leonardo da Vinci', 'Mozart', 'Beethoven', 'Shakespeare', 'Goethe', 'Picasso', 'Van Gogh', 'Michael Jackson', 'Elvis Presley',
+    'The Beatles', 'Freddie Mercury', 'Madonna', 'Lady Gaga', 'Beyoncé', 'Taylor Swift', 'Ed Sheeran', 'Eminem', 'Cristiano Ronaldo', 'Lionel Messi',
+    'Michael Jordan', 'Usain Bolt', 'Muhammad Ali', 'Mike Tyson', 'Roger Federer', 'Elon Musk', 'Bill Gates', 'Steve Jobs', 'Mark Zuckerberg', 'Jeff Bezos'
+  ],
+  marken: [
+    'Apple', 'Samsung', 'Microsoft', 'Google', 'Amazon', 'Facebook', 'Tesla', 'Nike', 'Adidas', 'Puma',
+    'McDonalds', 'Burger King', 'KFC', 'Subway', 'Starbucks', 'Coca Cola', 'Pepsi', 'Red Bull', 'Monster', 'BMW',
+    'Mercedes', 'Audi', 'Volkswagen', 'Porsche', 'Ferrari', 'Lamborghini', 'Sony', 'Nintendo', 'Playstation', 'Xbox'
+  ]
 };
 
 // Hilfsfunktionen

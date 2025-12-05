@@ -621,11 +621,18 @@
                         <div id="category-group" class="settings-group">
                             <label class="settings-label">Kategorie</label>
                             <select id="category" onchange="updateSettings()">
-                                <option value="tiere">Tiere</option>
-                                <option value="objekte">Objekte</option>
-                                <option value="orte">Orte</option>
-                                <option value="aktivitaeten">Aktivitäten</option>
-                                <option value="essen">Essen</option>
+                                <option value="tiere">🐘 Tiere</option>
+                                <option value="objekte">📦 Objekte</option>
+                                <option value="orte">📍 Orte</option>
+                                <option value="aktivitaeten">🏃 Aktivitäten</option>
+                                <option value="essen">🍕 Essen & Trinken</option>
+                                <option value="filme_serien">🎬 Filme & Serien</option>
+                                <option value="anime_manga">🎭 Anime/Manga</option>
+                                <option value="videospiele">🎮 Videospiele</option>
+                                <option value="berufe">💼 Berufe</option>
+                                <option value="laender">🌍 Länder</option>
+                                <option value="personen">⭐ Berühmte Personen</option>
+                                <option value="marken">🏢 Marken/Firmen</option>
                             </select>
                         </div>
 
@@ -1095,7 +1102,11 @@
             socket.on('new-word-after-reveal', ({ word, isImposter }) => {
                 // Neues Wort nach Wort-Offenbarung
                 playerWord = word;
-                playerRole = isImposter ? 'imposter' : 'player';
+                
+                // playerRole nur setzen wenn nicht bereits spectator
+                if (playerRole !== 'spectator') {
+                    playerRole = isImposter ? 'imposter' : 'player';
+                }
                 
                 showToast(`🔄 Neues Wort: ${word}`, 'info');
             });
@@ -1493,7 +1504,10 @@
             const activePlayers = currentLobby.players.filter(p => !p.isSpectator);
             
             const hasVoted = gameState.votes[socket.id] !== undefined;
-            const isSpectator = playerRole === 'spectator';
+            
+            // isSpectator aus playerRole ODER direkt aus Lobby-Player lesen
+            const currentPlayer = currentLobby.players.find(p => p.id === socket.id);
+            const isSpectator = playerRole === 'spectator' || (currentPlayer && currentPlayer.isSpectator);
             
             // Spectators sehen KEINE Voting-Optionen
             if (isSpectator) {
