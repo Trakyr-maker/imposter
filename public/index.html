@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IMPOSTER - Online Multiplayer</title>
     <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Konfetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;800;900&display=swap" rel="stylesheet">
     <style>
         * {
@@ -28,10 +32,58 @@
 
         .screen {
             display: none;
+            opacity: 0;
+            animation: fadeOut 0.3s ease-out;
         }
 
         .screen.active {
             display: block;
+            animation: fadeIn 0.4s ease-in;
+            opacity: 1;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideOutDown {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
         }
 
         .card {
@@ -507,6 +559,22 @@
             background: rgba(30, 41, 59, 0.8);
             color: #64748b;
             font-size: 0.875rem;
+        }
+
+        /* Audio Panel Animation */
+        #audio-panel {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
 
         @media (max-width: 768px) {
@@ -1076,6 +1144,75 @@
             }
         }
 
+        // Konfetti-Effekte
+        function celebratePlayersWin() {
+            // Spieler-Sieg: Blaue/Grüne Farben
+            const duration = 3000;
+            const end = Date.now() + duration;
+
+            const colors = ['#60a5fa', '#34d399', '#3b82f6', '#10b981'];
+
+            (function frame() {
+                confetti({
+                    particleCount: 3,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: colors
+                });
+                confetti({
+                    particleCount: 3,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: colors
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
+        function celebrateImposterWin() {
+            // Imposter-Sieg: Lila/Rote Farben
+            const duration = 3000;
+            const end = Date.now() + duration;
+
+            const colors = ['#a855f7', '#ef4444', '#c084fc', '#f87171'];
+
+            (function frame() {
+                confetti({
+                    particleCount: 3,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: colors
+                });
+                confetti({
+                    particleCount: 3,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: colors
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
+        function celebrateDraw() {
+            // Unentschieden: Graue Farben
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#94a3b8', '#64748b', '#cbd5e1']
+            });
+        }
+
         // Musik testen (ignoriert Screen-Check)
         function testMusic() {
             initAudio();
@@ -1383,6 +1520,15 @@
                 currentLobby = lobby;
                 wasImposter = (socket.id === imposter);
                 myRatings = {};
+                
+                // Konfetti basierend auf Winner
+                if (winner === 'players') {
+                    celebratePlayersWin();
+                } else if (winner === 'imposter') {
+                    celebrateImposterWin();
+                } else if (winner === 'draw') {
+                    celebrateDraw();
+                }
                 
                 if (isFinal) {
                     showScreen('final-screen');
@@ -2038,11 +2184,15 @@
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = message;
+            toast.style.animation = 'slideInUp 0.3s ease-out';
             document.body.appendChild(toast);
 
             setTimeout(() => {
-                toast.remove();
-            }, 3000);
+                toast.style.animation = 'slideOutDown 0.3s ease-in';
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 2700);
         }
 
         // Enter Key Support
