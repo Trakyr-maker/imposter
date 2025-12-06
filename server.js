@@ -128,8 +128,25 @@ function sanitizeLobby(lobby) {
 // Static Files
 app.use(express.static('public'));
 
+// Debug: Public Ordner Inhalt anzeigen
+app.get('/debug-public', (req, res) => {
+  const fs = require('fs');
+  const publicPath = path.join(__dirname, 'public');
+  
+  try {
+    const files = fs.readdirSync(publicPath);
+    res.json({
+      publicPath: publicPath,
+      exists: fs.existsSync(publicPath),
+      files: files
+    });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Socket.io Events
