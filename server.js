@@ -128,23 +128,6 @@ function sanitizeLobby(lobby) {
 // Static Files
 app.use(express.static('public'));
 
-// Debug: Public Ordner Inhalt anzeigen
-app.get('/debug-public', (req, res) => {
-  const fs = require('fs');
-  const publicPath = path.join(__dirname, 'public');
-  
-  try {
-    const files = fs.readdirSync(publicPath);
-    res.json({
-      publicPath: publicPath,
-      exists: fs.existsSync(publicPath),
-      files: files
-    });
-  } catch (err) {
-    res.json({ error: err.message });
-  }
-});
-
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -398,7 +381,7 @@ io.on('connection', (socket) => {
       player.score = (player.score || 0) + 2;
       player.totalPoints = (player.totalPoints || 0) + 2;
       
-      endMatch(lobby, lobbyCode, 'imposter', `🎭 Der Imposter ${player.name} hat das Wort "${gameState.word}" erraten! Imposter: +2 Punkte`);
+      endMatch(lobby, lobbyCode, 'imposter', `🎭 Der Imposter ${player.name} hat das Wort "${gameState.word}" erraten! Imposter: +2 Punkte`, 'guessed-word');
       return;
     }
     
@@ -576,11 +559,11 @@ io.on('connection', (socket) => {
     });
 
     const maxVotes = Math.max(...Object.values(voteCounts), 0);
-    const votedPlayerId = Object.keys(voteCounts).find(id => voteCounts[id] === maxVotes);
-
+    const playersWithMaxVotes = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
+    
     // Nach Runde 3 (also in Runde 4) darf nicht mehr weitergespielt werden
     if (continueVotes > maxVotes && gameState.round <= 3) {
-      // Weiterspielen
+      // "Weiter spielen" hat gewonnen
       gameState.phase = 'playing';
       gameState.votes = {};
       gameState.voteResults = {};
@@ -592,8 +575,35 @@ io.on('connection', (socket) => {
       startTurnTimer(lobby, lobbyCode);
       
       console.log(`Runde ${gameState.round} wird weitergespielt in Lobby ${lobbyCode}`);
-    } else if (votedPlayerId) {
-      // Spieler wurde gevotet
+    } else if (playersWithMaxVotes.length > 1 || maxVotes === 0) {
+      // Gleichstand: Mehrere Spieler haben gleich viele Votes ODER niemand wurde gevotet
+      
+      if (gameState.round === 2) {
+        // Nach Runde 2: Gleichstand → Runde 3 starten
+        gameState.phase = 'playing';
+        gameState.votes = {};
+        gameState.voteResults = {};
+        gameState.currentPlayerIndex = 0;
+        gameState.turnStartTime = Date.now();
+        lobby.status = 'playing';
+        
+        io.to(lobbyCode).emit('game-updated', { lobby: sanitizeLobby(lobby) });
+        startTurnTimer(lobby, lobbyCode);
+        
+        console.log(`Gleichstand nach Runde 2 in Lobby ${lobbyCode} - Runde 3 wird gestartet`);
+      } else {
+        // Nach Runde 3: Gleichstand → Imposter gewinnt (Spieler konnten sich nicht einigen)
+        const imposterPlayer = lobby.players.find(p => p.id === gameState.imposter);
+        if (imposterPlayer) {
+          imposterPlayer.score = (imposterPlayer.score || 0) + 1;
+          imposterPlayer.totalPoints = (imposterPlayer.totalPoints || 0) + 1;
+        }
+        
+        endMatch(lobby, lobbyCode, 'imposter', `Die Spieler konnten sich nicht einigen! Der Imposter ${imposterPlayer.name} gewinnt! +1 Punkt`, 'no-agreement');
+      }
+    } else if (playersWithMaxVotes.length === 1) {
+      // Klare Mehrheit für einen Spieler
+      const votedPlayerId = playersWithMaxVotes[0];
       const votedPlayer = lobby.players.find(p => p.id === votedPlayerId);
       const isImposter = votedPlayerId === gameState.imposter;
 
@@ -614,11 +624,8 @@ io.on('connection', (socket) => {
           imposterPlayer.totalPoints = (imposterPlayer.totalPoints || 0) + 1;
         }
         
-        endMatch(lobby, lobbyCode, 'imposter', `${votedPlayer.name} war nicht der Imposter! Der Imposter ${imposterPlayer.name} hat gewonnen! +1 Punkt`);
+        endMatch(lobby, lobbyCode, 'imposter', `${votedPlayer.name} war nicht der Imposter! Der Imposter ${imposterPlayer.name} hat gewonnen! +1 Punkt`, 'wrong-vote');
       }
-    } else {
-      // Keine klare Mehrheit oder nach Runde 4 und CONTINUE gewählt - Unentschieden
-      endMatch(lobby, lobbyCode, 'draw', `Keine Entscheidung getroffen! Unentschieden!`);
     }
   }
 
@@ -648,7 +655,7 @@ io.on('connection', (socket) => {
         }
       });
       
-      endMatch(lobby, lobbyCode, 'imposter', `Der Imposter hat das Wort "${gameState.word}" erraten! Imposter: +2 Punkte, Spieler: +1 Punkt`);
+      endMatch(lobby, lobbyCode, 'imposter', `Der Imposter hat das Wort "${gameState.word}" erraten! Imposter: +2 Punkte, Spieler: +1 Punkt`, 'guessed-word-after-vote');
     } else {
       // Imposter hat falsch geraten - Spieler bekommen +2 Punkte
       lobby.players.forEach(player => {
@@ -658,12 +665,12 @@ io.on('connection', (socket) => {
         }
       });
       
-      endMatch(lobby, lobbyCode, 'players', `Der Imposter hat falsch geraten! Das Wort war "${gameState.word}". Spieler bekommen +2 Punkte!`);
+      endMatch(lobby, lobbyCode, 'players', `Der Imposter hat falsch geraten! Das Wort war "${gameState.word}". Spieler bekommen +2 Punkte!`, 'wrong-guess');
     }
   });
 
   // Match beenden
-  function endMatch(lobby, lobbyCode, winner, message) {
+  function endMatch(lobby, lobbyCode, winner, message, reason = 'default') {
     lobby.matchCount++;
     lobby.status = 'results';
     
@@ -678,12 +685,13 @@ io.on('connection', (socket) => {
       lobby: sanitizeLobby(lobby),
       winner,
       message,
+      reason,
       isFinal,
       matchCount: lobby.matchCount,
       imposter: lobby.gameState.imposter
     });
 
-    console.log(`Match in Lobby ${lobbyCode} beendet: ${winner} - ${message}`);
+    console.log(`Match in Lobby ${lobbyCode} beendet: ${winner} - ${message} (Grund: ${reason})`);
   }
 
   // Punkte vergeben

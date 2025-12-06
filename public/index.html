@@ -86,6 +86,16 @@
             }
         }
 
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        .defeat-shake {
+            animation: shake 0.5s;
+        }
+
         .card {
             background: rgba(30, 41, 59, 0.8);
             backdrop-filter: blur(20px);
@@ -1213,6 +1223,42 @@
             });
         }
 
+        function showDefeatAnimation() {
+            // Verlierer-Animation: Trauriger Regen-Effekt + Screen-Shake
+            const duration = 3000;
+            const end = Date.now() + duration;
+
+            const colors = ['#475569', '#64748b', '#94a3b8'];
+
+            // Screen-Shake
+            const resultsScreen = document.getElementById('results-screen');
+            if (resultsScreen) {
+                resultsScreen.classList.add('defeat-shake');
+                setTimeout(() => {
+                    resultsScreen.classList.remove('defeat-shake');
+                }, 500);
+            }
+
+            // Regen-Effekt
+            (function frame() {
+                confetti({
+                    particleCount: 2,
+                    angle: 90,
+                    spread: 45,
+                    origin: { x: Math.random(), y: 0 },
+                    colors: colors,
+                    gravity: 1.5,
+                    drift: 0,
+                    ticks: 200,
+                    scalar: 0.8
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
         // Musik testen (ignoriert Screen-Check)
         function testMusic() {
             initAudio();
@@ -1516,18 +1562,78 @@
                 showToast(`🔄 Neues Wort: ${word}`, 'info');
             });
 
-            socket.on('match-ended', ({ lobby, winner, message, isFinal, matchCount, imposter }) => {
+            socket.on('match-ended', ({ lobby, winner, message, reason, isFinal, matchCount, imposter }) => {
                 currentLobby = lobby;
                 wasImposter = (socket.id === imposter);
                 myRatings = {};
                 
-                // Konfetti basierend auf Winner
-                if (winner === 'players') {
-                    celebratePlayersWin();
-                } else if (winner === 'imposter') {
-                    celebrateImposterWin();
+                // Checken ob ich gewonnen oder verloren habe
+                let iWon = false;
+                let customMessage = message;
+                
+                if (winner === 'players' && !wasImposter) {
+                    // Ich bin Spieler und Spieler haben gewonnen
+                    iWon = true;
+                    if (reason === 'wrong-guess') {
+                        customMessage = '🎉 Match Gewonnen! Der Imposter hat falsch geraten!';
+                    } else {
+                        customMessage = '🎉 Match Gewonnen! Die Spieler haben den Imposter besiegt!';
+                    }
+                } else if (winner === 'imposter' && wasImposter) {
+                    // Ich bin Imposter und Imposter hat gewonnen
+                    iWon = true;
+                    if (reason === 'guessed-word') {
+                        customMessage = '🎭 Match Gewonnen! Du hast das Wort erraten!';
+                    } else if (reason === 'guessed-word-after-vote') {
+                        customMessage = '🎭 Match Gewonnen! Du wurdest entlarvt, aber hast das Wort erraten!';
+                    } else if (reason === 'wrong-vote') {
+                        customMessage = '🎭 Match Gewonnen! Die Spieler haben den falschen Spieler gevotet!';
+                    } else if (reason === 'no-agreement') {
+                        customMessage = '🎭 Match Gewonnen! Die Spieler konnten sich nicht einigen!';
+                    } else {
+                        customMessage = '🎭 Match Gewonnen! Du hast die Spieler getäuscht!';
+                    }
                 } else if (winner === 'draw') {
+                    // Unentschieden (sollte nicht mehr vorkommen)
+                    customMessage = '🤝 Unentschieden! Keine Seite konnte gewinnen.';
+                } else {
+                    // Ich habe verloren
+                    if (wasImposter) {
+                        // Ich war Imposter und habe verloren
+                        if (reason === 'wrong-guess') {
+                            customMessage = '😔 Match Verloren! Du hast falsch geraten!';
+                        } else {
+                            customMessage = '😔 Match Verloren! Die Spieler haben dich entlarvt!';
+                        }
+                    } else {
+                        // Ich war Spieler und habe verloren
+                        if (reason === 'guessed-word') {
+                            customMessage = '😔 Match Verloren! Der Imposter hat das Wort erraten!';
+                        } else if (reason === 'guessed-word-after-vote') {
+                            customMessage = '😔 Match Verloren! Der Imposter hat das Wort erraten!';
+                        } else if (reason === 'wrong-vote') {
+                            customMessage = '😔 Match Verloren! Ihr habt den falschen Spieler gevotet!';
+                        } else if (reason === 'no-agreement') {
+                            customMessage = '😔 Match Verloren! Ihr konntet euch nicht einigen!';
+                        } else {
+                            customMessage = '😔 Match Verloren! Der Imposter hat euch getäuscht!';
+                        }
+                    }
+                }
+                
+                // Animation basierend auf Ergebnis
+                if (winner === 'draw') {
                     celebrateDraw();
+                } else if (iWon) {
+                    // Nur Gewinner bekommen Konfetti
+                    if (winner === 'players') {
+                        celebratePlayersWin();
+                    } else {
+                        celebrateImposterWin();
+                    }
+                } else {
+                    // Verlierer bekommen Regen-Effekt
+                    showDefeatAnimation();
                 }
                 
                 if (isFinal) {
@@ -1535,7 +1641,7 @@
                     updateFinalUI();
                 } else {
                     showScreen('results-screen');
-                    updateResultsUI(message, matchCount);
+                    updateResultsUI(customMessage, matchCount);
                 }
             });
 
