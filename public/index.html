@@ -1224,34 +1224,38 @@
         }
 
         function showDefeatAnimation() {
-            // Verlierer-Animation: Trauriger Regen-Effekt + Screen-Shake
-            const duration = 3000;
+            // Verlierer-Animation: Dramatischer Regen-Effekt + Screen-Shake + Red Overlay
+            const duration = 5000; // 5 Sekunden statt 3
             const end = Date.now() + duration;
 
-            const colors = ['#475569', '#64748b', '#94a3b8'];
+            const colors = ['#475569', '#64748b', '#94a3b8', '#1e293b'];
 
-            // Screen-Shake
+            // Screen-Shake - stärker und länger
             const resultsScreen = document.getElementById('results-screen');
             if (resultsScreen) {
                 resultsScreen.classList.add('defeat-shake');
                 setTimeout(() => {
                     resultsScreen.classList.remove('defeat-shake');
-                }, 500);
+                }, 1000); // 1 Sekunde Shake
             }
 
-            // Regen-Effekt
+            // Regen-Effekt - intensiver
             (function frame() {
-                confetti({
-                    particleCount: 2,
-                    angle: 90,
-                    spread: 45,
-                    origin: { x: Math.random(), y: 0 },
-                    colors: colors,
-                    gravity: 1.5,
-                    drift: 0,
-                    ticks: 200,
-                    scalar: 0.8
-                });
+                // Mehr Partikel pro Frame
+                for (let i = 0; i < 3; i++) {
+                    confetti({
+                        particleCount: 1,
+                        angle: 90,
+                        spread: 60,
+                        origin: { x: Math.random(), y: 0 },
+                        colors: colors,
+                        gravity: 2,
+                        drift: Math.random() * 0.5 - 0.25,
+                        ticks: 300,
+                        scalar: 1.2,
+                        shapes: ['circle']
+                    });
+                }
 
                 if (Date.now() < end) {
                     requestAnimationFrame(frame);

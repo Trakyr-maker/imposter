@@ -561,7 +561,7 @@ io.on('connection', (socket) => {
     const maxVotes = Math.max(...Object.values(voteCounts), 0);
     const playersWithMaxVotes = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
     
-    // Nach Runde 3 (also in Runde 4) darf nicht mehr weitergespielt werden
+    // Nach Runde 3 (also wenn round = 4) darf nicht mehr weitergespielt werden
     if (continueVotes > maxVotes && gameState.round <= 3) {
       // "Weiter spielen" hat gewonnen
       gameState.phase = 'playing';
@@ -578,8 +578,8 @@ io.on('connection', (socket) => {
     } else if (playersWithMaxVotes.length > 1 || maxVotes === 0) {
       // Gleichstand: Mehrere Spieler haben gleich viele Votes ODER niemand wurde gevotet
       
-      if (gameState.round === 2) {
-        // Nach Runde 2: Gleichstand → Runde 3 starten
+      if (gameState.round === 3) {
+        // Erstes Voting (nach Runde 2): Gleichstand → Runde 3 starten
         gameState.phase = 'playing';
         gameState.votes = {};
         gameState.voteResults = {};
@@ -592,7 +592,7 @@ io.on('connection', (socket) => {
         
         console.log(`Gleichstand nach Runde 2 in Lobby ${lobbyCode} - Runde 3 wird gestartet`);
       } else {
-        // Nach Runde 3: Gleichstand → Imposter gewinnt (Spieler konnten sich nicht einigen)
+        // Finales Voting (nach Runde 3): Gleichstand → Imposter gewinnt
         const imposterPlayer = lobby.players.find(p => p.id === gameState.imposter);
         if (imposterPlayer) {
           imposterPlayer.score = (imposterPlayer.score || 0) + 1;
